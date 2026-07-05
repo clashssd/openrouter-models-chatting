@@ -20,7 +20,7 @@ Professional AI chat application with support for multiple models, rate limiting
 ### Local Installation
 
 ```bash
-git clone https://github.com/clashssd/openrouter-models-chatting/main/ai
+git clone https://github.com/clashssd/openrouter-models-chatting
 cd openrouter-app
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
