@@ -156,11 +156,20 @@ class ChatSession:
 class ChatManager:
     """Manager for chat sessions"""
 
-    def __init__(self, sessions_dir: str = "chat_sessions"):
+    def __init__(self, sessions_dir: str = "chat_sessions", fallback_manager_param=None, stream_handler_param=None):
+        # Allow passing fallback_manager and stream_handler from main
+        # and set the module-level globals for backward compatibility
+        global fallback_manager, stream_handler
+        if fallback_manager_param is not None:
+            fallback_manager = fallback_manager_param
+        if stream_handler_param is not None:
+            stream_handler = stream_handler_param
+
         self.sessions_dir = Path(sessions_dir)
         self.sessions_dir.mkdir(parents=True, exist_ok=True)
         self.current_session: Optional[ChatSession] = None
         self.sessions: Dict[str, ChatSession] = {}
+        # Use the module globals which may have been updated above
         self.fallback_manager = fallback_manager
         self.stream_handler = stream_handler
         self._load_all_sessions()
