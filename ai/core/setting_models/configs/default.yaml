@@ -1,0 +1,31 @@
+# ai/core/setting_models/configs/default.yaml
+model:
+  id: null
+  name: null
+  provider: null
+  tier: null
+settings:
+  temperature: 0.7
+  max_tokens: 4096
+  top_p: 0.9
+  frequency_penalty: 0.0
+  presence_penalty: 0.0
+system_prompt: |
+  You are a helpful AI assistant.
+  You provide clear, concise, and accurate responses.
+  You think step by step when solving problems.
+skills:
+  - name: general_knowledge
+    enabled: true
+    weight: 1.0
+  - name: reasoning
+    enabled: true
+    weight: 1.0
+  - name: coding
+    enabled: false
+    weight: 0.5
+profile:
+  name: "Default Profile"
+  description: "Default configuration for all models"
+  created: "2026-07-05"
+  version: "1.0"

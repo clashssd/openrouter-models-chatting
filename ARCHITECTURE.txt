@@ -1,0 +1,410 @@
+ARCHITECTURE OVERVIEW
+====================
+
+APPLICATION LAYERS
+==================
+
+1. PRESENTATION LAYER (main.py)
+   - Command-line interface
+   - User input handling
+   - Output formatting with colors
+   - Command routing
+
+2. APPLICATION LAYER
+   - Chat management (chat_handler.py)
+   - Streaming management (stream_handler.py)
+   - Configuration management (model_config.py)
+
+3. BUSINESS LOGIC LAYER
+   - Model fallback (model_fallback.py)
+   - Rate limiting (rate_limiter.py)
+   - Response caching (utils.py)
+   - Token counting (utils.py)
+
+4. API INTEGRATION LAYER
+   - OpenRouter client (openrouter_checker.py)
+   - HTTP communication
+   - Error handling
+
+5. PERSISTENCE LAYER
+   - Configuration files (YAML)
+   - Response cache (JSON)
+   - Model registry (JSON)
+   - Logs (app.log)
+
+
+DATA FLOW
+=========
+
+User Input
+    |
+    v
+Command Parser (main.py)
+    |
+    v
+Command Handler
+    |
+    +---> ChatManager
+    |       |
+    |       v
+    |   StreamingChatSession
+    |       |
+    |       v
+    |   OpenRouterClient
+    |       |
+    |       +---> RateLimiter
+    |       |
+    |       +---> ModelFallbackManager
+    |       |
+    |       +---> ResponseCache
+    |
+    +---> ConfigurationManager
+    |       |
+    |       v
+    |   YAML Files
+    |
+    +---> ModelRegistry
+            |
+            v
+        JSON File
+
+
+COMPONENT RELATIONSHIPS
+======================
+
+OpenRouterClient
+    |
+    +---> RateLimiter (retry logic)
+    |
+    +---> ModelFallbackManager (fallback chain)
+    |
+    v
+ApiKeyChecker
+    |
+    +---> ModelConfigManager (profile management)
+    |
+    +---> StreamHandler (streaming support)
+    |
+    v
+ChatManager
+    |
+    +---> ChatSession (session state)
+    |
+    +---> StreamingChatSession (streaming)
+
+
+REQUEST FLOW DIAGRAM
+====================
+
+User Message
+    |
+    v
+ChatSession.add_message()
+    |
+    v
+StreamingChatSession.send_message()
+    |
+    v
+ModelFallbackManager.chat_with_fallback()
+    |
+    v
+Try Primary Model
+    |
+    +---> RateLimiter.execute_with_retry()
+    |       |
+    |       +---> OpenRouterClient.post_key_info()
+    |       |       |
+    |       |       v
+    |       |   HTTP Request
+    |       |       |
+    |       |       +---> 200 OK: Return Response
+    |       |       +---> 429: Backoff and Retry
+    |       |       +---> 5XX: Backoff and Retry
+    |       |
+    |       v
+    |   Response Received
+    |
+    v (on success)
+ResponseCache.set()
+    |
+    v
+ChatSession.add_message() [assistant]
+    |
+    v
+Return Response to User
+
+
+ERROR HANDLING FLOW
+===================
+
+Exception Occurs
+    |
+    v
+Is RateLimitError?
+    |
+    +---> YES: RateLimiter.execute_with_retry()
+    |       |
+    |       v
+    |   Calculate Backoff
+    |       |
+    |       v
+    |   Sleep(delay)
+    |       |
+    |       v
+    |   Retry Function
+    |       |
+    |       +---> Success: Return Result
+    |       +---> Failure: Max Retries Exceeded
+    |
+    +---> NO: Check Fallback
+            |
+            v
+        ModelFallbackManager.chat_with_fallback()
+            |
+            v
+        Try Next Model
+            |
+            +---> Success: Return Result
+            +---> Failure: Try Next
+            +---> All Failed: Raise Exception
+
+
+CONFIGURATION HIERARCHY
+=======================
+
+System Defaults
+    |
+    v (override)
+Base Configuration (default.yaml)
+    |
+    v (merge)
+Profile Configuration (custom/profile_name.yaml)
+    |
+    v (merge)
+Runtime Settings
+    =
+Final Configuration
+
+
+CACHE STRATEGY
+==============
+
+Message Set
+    |
+    v
+Hash(model_id + messages)
+    |
+    v
+Check ResponseCache
+    |
+    +---> HIT: Return Cached Response
+    |
+    +---> MISS: Query API
+            |
+            v
+        Store in Cache
+            |
+            v
+        Return Response
+
+
+STATE MACHINE: CHAT SESSION
+===========================
+
+States:
+1. CREATED
+2. ACTIVE
+3. STREAMING
+4. PAUSED
+5. CLOSED
+
+Transitions:
+CREATED ---start--> ACTIVE
+ACTIVE ---toggle_stream--> STREAMING
+STREAMING ---toggle_stream--> ACTIVE
+ACTIVE ---pause--> PAUSED
+PAUSED ---resume--> ACTIVE
+ACTIVE/PAUSED/STREAMING ---close--> CLOSED
+
+
+STATE MACHINE: MODEL FALLBACK
+=============================
+
+States:
+1. AVAILABLE
+2. RATE_LIMITED
+3. BLACKLISTED
+4. FAILED
+
+Transitions:
+AVAILABLE ---rate_limit--> RATE_LIMITED
+RATE_LIMITED ---wait_expire--> AVAILABLE
+AVAILABLE ---failure--> FAILED
+FAILED ---blacklist--> BLACKLISTED
+BLACKLISTED ---cooldown_expire--> AVAILABLE
+AVAILABLE ---success--> AVAILABLE
+
+
+THREADING MODEL
+===============
+
+Main Thread:
+- Command parsing
+- User I/O
+- Session management
+
+Optional Background Threads:
+- Model pinger (if --ping enabled)
+- Rate limiter (internal thread pool)
+
+Thread Safety:
+- Lock on rate_limiter.backoff_times
+- Lock on model_fallback.blacklist
+- Lock on response_cache.data
+
+No Global State:
+- Each session independent
+- Each client independent
+- Stateless HTTP layer
+
+
+PERFORMANCE CHARACTERISTICS
+===========================
+
+Time Complexity:
+- Chat message: O(1) for local operations, O(n) for API
+- Cache lookup: O(1) with hash
+- Model selection: O(m) where m = number of fallback models
+- Configuration load: O(1) with file I/O
+
+Space Complexity:
+- Response cache: O(n) where n = cache size
+- Fallback history: O(m) where m = failure count
+- Message history: O(messages) per session
+
+Scalability:
+- Supports unlimited sessions (memory permitting)
+- Supports unlimited profiles (file I/O dependent)
+- API rate limited by OpenRouter (50 req/hour free tier)
+
+
+DEPENDENCY GRAPH
+================
+
+main.py
+    |
+    +---> core.openrouter_checker
+    |       |
+    |       +---> requests (HTTP)
+    |       +---> setting_models.model_config
+    |       +---> model_fallback
+    |       +---> stream_handler
+    |       +---> rate_limiter
+    |
+    +---> core.chat_handler
+    |       |
+    |       +---> utils
+    |       +---> openrouter_checker
+    |
+    +---> core.utils
+            |
+            +---> (no core dependencies)
+
+External Dependencies:
+- requests: HTTP requests
+- python-dotenv: Environment variables
+- pyyaml: Configuration parsing
+- typing-extensions: Type hints
+
+Standard Library:
+- json, time, threading, logging, pathlib, re, etc.
+
+
+SCALABILITY CONSIDERATIONS
+==========================
+
+Vertical Scaling (Single Machine):
+- Increase max_sessions in ChatManager
+- Increase cache_size in ResponseCache
+- Adjust thread pool in RateLimiter
+
+Horizontal Scaling (Multiple Instances):
+- Session storage to database
+- Shared cache (Redis)
+- Central rate limiter (API gateway)
+- Load balancer for CLI commands
+
+Current Limitations:
+- Single machine only
+- Local file storage only
+- In-memory session tracking
+- No distributed locking
+
+Recommendations for Scale:
+1. Add Redis for caching
+2. Add PostgreSQL for persistence
+3. Add API Gateway for rate limiting
+4. Add Message Queue (RabbitMQ)
+5. Containerize with Docker
+
+
+SECURITY CONSIDERATIONS
+=======================
+
+API Key:
+- Stored in .env (not versioned)
+- Never logged or printed
+- Passed via environment variable
+- Rotated periodically
+
+Network:
+- HTTPS only (requests handles)
+- No proxy configuration (default)
+- Timeout set to 30 seconds
+
+Data:
+- Cache file readable by owner only
+- Configuration files no sensitive data
+- Logs may contain partial prompts
+- Session data in memory only
+
+Threats Mitigated:
+- Rate limiting prevents DOS
+- Fallback prevents single model dependency
+- Error handling prevents information leaks
+- Timeout prevents hanging requests
+
+
+MONITORING AND LOGGING
+======================
+
+Log Levels:
+DEBUG: Detailed operation info
+INFO: General information
+WARNING: Potential issues
+ERROR: Failure information
+
+Log Destinations:
+- Console: User-facing output
+- File: app.log persistent storage
+
+Logged Events:
+- API requests/responses
+- Rate limit events
+- Model fallback activities
+- Cache operations
+- Configuration changes
+- Session operations
+
+Monitoring Points:
+- Request success rate
+- Average response time
+- Cache hit ratio
+- Fallback frequency
+- Rate limit occurrences
+
+Performance Metrics:
+- Tokens per second
+- Average cost per request
+- API response latency
+- Model switching frequency

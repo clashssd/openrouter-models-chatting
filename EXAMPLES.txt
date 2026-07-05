@@ -1,0 +1,440 @@
+USAGE EXAMPLES
+==============
+
+EXAMPLE 1: SIMPLE CHAT
+======================
+from core.openrouter_checker import ApiKeyChecker
+
+api_key = "your_api_key_here"
+checker = ApiKeyChecker(api_key)
+
+# Single message
+response = checker.chat_completion(
+    model_id="nvidia/nemotron-3-ultra-550b-a55b:free",
+    prompt="Explain machine learning in simple terms"
+)
+print(response)
+
+
+EXAMPLE 2: CONVERSATION WITH HISTORY
+=====================================
+from core.openrouter_checker import ApiKeyChecker
+
+api_key = "your_api_key_here"
+checker = ApiKeyChecker(api_key)
+
+messages = [
+    {"role": "user", "content": "What is Python?"},
+    {"role": "assistant", "content": "Python is a high-level programming language..."},
+    {"role": "user", "content": "What are its uses?"}
+]
+
+response = checker.chat_completion_with_history(
+    model_id="nvidia/nemotron-3-ultra-550b-a55b:free",
+    messages=messages
+)
+print(response)
+
+
+EXAMPLE 3: USING FALLBACK MECHANISM
+===================================
+from core.openrouter_checker import ApiKeyChecker
+from core.model_fallback import ModelFallbackManager
+
+api_key = "your_api_key_here"
+checker = ApiKeyChecker(api_key)
+fallback = checker.fallback_manager
+
+messages = [{"role": "user", "content": "Hello"}]
+
+# Will try primary, then fallback models if primary fails
+response = fallback.chat_with_fallback(
+    primary_model="nvidia/nemotron-3-ultra-550b-a55b:free",
+    messages=messages
+)
+print(response)
+
+
+EXAMPLE 4: WORKING WITH PROFILES
+=================================
+from core.setting_models.model_config import ModelConfigManager
+
+manager = ModelConfigManager()
+
+# Create profile
+config = {
+    "settings": {
+        "temperature": 0.3,
+        "max_tokens": 2048
+    },
+    "profile": {
+        "name": "Code Review Profile"
+    }
+}
+manager.create_profile(
+    "code_review",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    config
+)
+
+# Load profile
+profile = manager.load_profile("code_review")
+print(f"Loaded profile: {profile['profile']['name']}")
+
+# List all profiles
+profiles = manager.list_profiles()
+print(f"Available profiles: {profiles}")
+
+
+EXAMPLE 5: CHECKING API STATUS
+===============================
+from core.openrouter_checker import ApiKeyChecker
+
+api_key = "your_api_key_here"
+checker = ApiKeyChecker(api_key)
+
+# Check API key status
+status = checker.get_key_status()
+print(f"Key Label: {status['label']}")
+print(f"Is Free Tier: {status['is_free_tier']}")
+print(f"Rate Limit: {status['rate_limit']}")
+
+
+EXAMPLE 6: LISTING MODELS
+==========================
+from core.openrouter_checker import ApiKeyChecker
+
+api_key = "your_api_key_here"
+checker = ApiKeyChecker(api_key)
+
+# Get all models
+all_models = checker.get_all_models()
+print(f"Total models: {len(all_models)}")
+
+# Get only free models
+free_models = checker.get_free_models()
+for model in free_models[:5]:
+    print(f"- {model.get('id')}")
+
+
+EXAMPLE 7: USING PROMPT TEMPLATES
+==================================
+from core.utils import PromptTemplates
+
+templates = PromptTemplates()
+
+# List available templates
+for template in templates.list_templates():
+    print(f"- {template['name']}: {template['description']}")
+
+# Render template
+code = """
+def fibonacci(n):
+    if n <= 1:
+        return n
+    return fibonacci(n-1) + fibonacci(n-2)
+"""
+
+prompt = templates.render_template("code_review", code=code)
+print(prompt)
+
+
+EXAMPLE 8: CACHING RESPONSES
+============================
+from core.utils import ResponseCache
+import tempfile
+
+# Create cache
+with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as f:
+    cache_file = f.name
+
+cache = ResponseCache(cache_file)
+
+# Cache response
+messages = [{"role": "user", "content": "Hello"}]
+cache.set("model_id", messages, "Cached response")
+
+# Retrieve from cache
+cached = cache.get("model_id", messages)
+print(f"Cached response: {cached}")
+
+# Disable caching
+cache.toggle(False)
+cached = cache.get("model_id", messages)  # Returns None
+print(f"With caching disabled: {cached}")
+
+# Clear cache
+cache.clear()
+
+
+EXAMPLE 9: TOKEN COUNTING
+=========================
+from core.utils import TokenCounter
+
+counter = TokenCounter()
+
+# Count tokens in text
+text = "This is a sample text for token counting"
+tokens = counter.count(text)
+print(f"Tokens in text: {tokens}")
+
+# Count tokens in messages
+messages = [
+    {"role": "user", "content": "Hello, how are you?"},
+    {"role": "assistant", "content": "I am doing well, thank you for asking!"}
+]
+total_tokens = counter.count_messages(messages)
+print(f"Total tokens in messages: {total_tokens}")
+
+# Estimate cost
+cost = counter.estimate_cost(
+    input_tokens=100,
+    output_tokens=200,
+    model="gpt-4"
+)
+print(f"Estimated cost: ${cost['total_cost']:.4f}")
+
+
+EXAMPLE 10: CODE HIGHLIGHTING
+=============================
+from core.utils import CodeHighlighter
+
+highlighter = CodeHighlighter()
+
+python_code = """
+def hello_world():
+    print("Hello, World!")
+    return True
+"""
+
+highlighted = highlighter.highlight(python_code)
+print(highlighted)  # Will include ANSI color codes
+
+
+EXAMPLE 11: INTERACTIVE CHAT SESSION
+====================================
+from core.chat_handler import ChatManager
+from core.openrouter_checker import ApiKeyChecker
+
+api_key = "your_api_key_here"
+checker = ApiKeyChecker(api_key)
+
+# Create chat manager
+chat_manager = ChatManager(
+    fallback_manager=checker.fallback_manager,
+    stream_handler=checker.stream_handler
+)
+
+# Create session
+session_id = chat_manager.create_streaming_session(
+    model_id="nvidia/nemotron-3-ultra-550b-a55b:free",
+    profile=None,
+    config=None
+)
+
+# Add messages
+chat_manager.add_message(session_id, "user", "Hello!")
+session = chat_manager.get_session(session_id)
+print(f"Messages: {session.get_messages()}")
+
+# Export session
+exported = chat_manager.export_session(session_id, "markdown")
+print(exported)
+
+
+EXAMPLE 12: STREAMING RESPONSES
+==============================
+from core.stream_handler import StreamHandler
+from core.openrouter_checker import ApiKeyChecker
+
+api_key = "your_api_key_here"
+checker = ApiKeyChecker(api_key)
+
+stream_handler = StreamHandler(checker)
+
+# Create streaming session
+session = stream_handler.create_streaming_session(
+    model_id="nvidia/nemotron-3-ultra-550b-a55b:free",
+    api_checker=checker
+)
+
+# Send message with streaming
+print("Response: ", end="", flush=True)
+response = session.send_message("Explain AI", streaming=True)
+print()  # New line after streaming
+
+
+EXAMPLE 13: RATE LIMITING
+=========================
+from core.rate_limiter import RateLimiter
+import time
+
+limiter = RateLimiter()
+
+# Configure rate limiter
+limiter.max_retries = 3
+limiter.base_delay = 2.0
+limiter.max_delay = 30.0
+
+# Define a function that might fail
+def api_call():
+    import random
+    if random.random() < 0.7:
+        raise Exception("Rate limit exceeded")
+    return "Success"
+
+try:
+    result = limiter.execute_with_retry(
+        func=api_call,
+        endpoint="chat/completions",
+        max_retries=3
+    )
+    print(f"Result: {result}")
+except Exception as e:
+    print(f"Failed after retries: {e}")
+
+
+EXAMPLE 14: MODEL REGISTRY
+==========================
+from core.openrouter_checker import ApiKeyChecker
+
+api_key = "your_api_key_here"
+checker = ApiKeyChecker(api_key)
+
+# Create registry
+models = checker.get_all_models()
+checker.save_all_models(models, "my_registry.json")
+
+# Load registry
+registry = checker.load_registry("my_registry.json")
+print(f"Registry created at: {registry['last_updated']}")
+print(f"Total models: {registry['total_models']}")
+
+# Get models by tier
+models_by_tier = checker.get_models_by_tier(registry)
+print(f"S+ tier models: {len(models_by_tier['S+'])}")
+
+
+EXAMPLE 15: CUSTOM SYSTEM PROMPT
+===============================
+from core.setting_models.model_config import ModelConfigManager
+
+manager = ModelConfigManager()
+
+# Save custom system prompt
+system_prompt = """
+You are an expert software architect with 15 years experience.
+Always provide:
+- Clean, well-structured code
+- Performance optimizations
+- Security considerations
+- Comprehensive documentation
+Focus on best practices and scalability.
+"""
+
+manager.save_system_prompt(system_prompt)
+
+# Load system prompt
+loaded = manager.get_system_prompt()
+print(f"System prompt loaded: {len(loaded)} characters")
+
+
+COMMAND LINE EXAMPLES
+=====================
+
+# Check API status
+python main.py --check
+
+# List free models
+python main.py --list-models
+
+# Start interactive chat
+python main.py --chat nvidia/nemotron-3-ultra-550b-a55b:free
+
+# Create model registry
+python main.py --create-registry
+
+# Interactive model selection
+python main.py --select
+
+# Create profile
+python main.py --create-profile my_profile
+
+# Show configuration
+python main.py --show-config my_profile
+
+# List all sessions
+python main.py --list-sessions
+
+# Real-time model pinger
+python main.py --ping
+
+# Show fallback status
+python main.py --fallback-status
+
+# Start with custom profile
+python main.py --chat nvidia/nemotron-3-ultra-550b-a55b:free --profile my_profile
+
+
+ADVANCED EXAMPLES
+=================
+
+Example A: Batch Processing
+---------------------------
+from core.openrouter_checker import ApiKeyChecker
+import json
+
+api_key = "your_api_key_here"
+checker = ApiKeyChecker(api_key)
+
+# Process multiple prompts
+prompts = [
+    "What is AI?",
+    "Explain ML",
+    "Define NLP"
+]
+
+results = {}
+for prompt in prompts:
+    try:
+        response = checker.chat_completion(
+            model_id="nvidia/nemotron-3-ultra-550b-a55b:free",
+            prompt=prompt
+        )
+        results[prompt] = response
+    except Exception as e:
+        results[prompt] = f"Error: {e}"
+
+# Save results
+with open("results.json", "w") as f:
+    json.dump(results, f, indent=2)
+
+
+Example B: Model Performance Tracking
+--------------------------------------
+from core.model_fallback import ModelFallbackManager
+from core.openrouter_checker import ApiKeyChecker
+import time
+
+api_key = "your_api_key_here"
+checker = ApiKeyChecker(api_key)
+fallback = checker.fallback_manager
+
+# Track model performance
+models = [
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "nvidia/nemotron-3-super-120b-a12b:free"
+]
+
+for model in models:
+    start = time.time()
+    try:
+        response = checker.chat_completion(model, "Hello")
+        elapsed = time.time() - start
+        print(f"{model}: {elapsed:.2f}s")
+    except Exception as e:
+        print(f"{model}: Failed - {e}")
+
+# Show status
+status = fallback.get_status()
+print(f"Fallback status: {status}")

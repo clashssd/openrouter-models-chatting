@@ -1,0 +1,112 @@
+QUICKSTART GUIDE
+================
+
+1. INITIAL SETUP
+---------------
+cd PythonProject2
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+2. CONFIGURE API KEY
+-------------------
+Create .env file:
+    echo "OPENROUTER_KEY=sk_..." > .env
+
+Or edit directly:
+    nano .env
+
+3. RUN TESTS
+-----------
+python ai/test.py
+
+Expected: 22 tests passed
+
+4. START INTERACTIVE CHAT
+------------------------
+cd ai
+python main.py --chat nvidia/nemotron-3-ultra-550b-a55b:free
+
+Chat commands:
+    /help       - Show help
+    /clear      - Clear history
+    /model ID   - Switch model
+    /profile NAME - Switch profile
+    /stream     - Toggle streaming
+    /export md  - Export chat
+    /exit       - Exit chat
+
+5. LIST AVAILABLE MODELS
+------------------------
+python main.py --list-models
+
+6. CHECK API STATUS
+-------------------
+python main.py --check
+
+7. CREATE REGISTRY
+------------------
+python main.py --create-registry
+
+8. INTERACTIVE MODEL SELECTION
+------------------------------
+python main.py --select
+
+TROUBLESHOOTING
+================
+
+No module named 'core'
+    - Ensure you are in ai/ directory
+    - Check PYTHONPATH includes core modules
+
+OPENROUTER_KEY not found
+    - Create .env file in project root
+    - Add: OPENROUTER_KEY=your_key_here
+    - Get key from https://openrouter.ai
+
+Rate limit exceeded
+    - Application auto-retries with backoff
+    - Check API credits at openrouter.ai
+    - Wait before next request
+
+ImportError with dotenv
+    - Run: pip install -r requirements.txt
+    - Verify Python path: python -c "import sys; print(sys.path)"
+
+Cache errors
+    - Safe to ignore, cache auto-recovers
+    - Check disk space for cache files
+
+DEVELOPMENT
+===========
+
+Run tests:
+    python test.py
+
+Format code:
+    black main.py core/
+
+Static analysis:
+    flake8 main.py core/
+    pylint main.py core/
+
+Type checking:
+    mypy main.py core/
+
+Install dev tools:
+    pip install -r requirements-dev.txt
+
+FEATURES
+========
+
+- Interactive chat with streaming
+- Automatic fallback on model failure
+- Rate limiting with exponential backoff
+- Configuration profiles
+- Response caching
+- Token counting
+- Code highlighting
+- Model registry
+- Session management
+
+For full documentation, see README.md

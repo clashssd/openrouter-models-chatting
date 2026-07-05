@@ -1,0 +1,371 @@
+API REFERENCE
+=============
+
+OPENROUTER CLIENT
+=================
+
+class OpenRouterClient(api_key: str)
+    Base class for OpenRouter API communication
+
+    Methods:
+    - get_key_info(endpoint, **kwargs) -> dict | None
+      Sends GET request to OpenRouter API endpoint
+      Returns parsed JSON response or None on error
+
+    - post_key_info(endpoint, json_data, **kwargs) -> dict | None
+      Sends POST request to OpenRouter API endpoint
+      Returns parsed JSON response or None on error
+
+    - load_registry(filename: str = "models_registry.json") -> dict | None
+      Loads model registry from JSON file
+      Returns registry dict or None if not found
+
+API KEY CHECKER
+===============
+
+class ApiKeyChecker(api_key: str)
+    Extends OpenRouterClient with key verification and model operations
+
+    Methods:
+    - get_key_status() -> dict | None
+      Returns: {
+          'label': str,
+          'limit': int | None,
+          'usage': int,
+          'is_free_tier': bool,
+          'rate_limit': str
+      }
+
+    - get_all_models() -> list[dict] | None
+      Returns list of all available models with metadata
+      Cached after first call
+
+    - get_free_models() -> list[dict]
+      Returns only models ending with ':free'
+
+    - save_all_models(models: list, filename: str) -> None
+      Saves model list to JSON registry
+
+    - chat_completion(model_id: str, prompt: str) -> str | None
+      Single message chat completion
+      Returns model response or None
+
+    - chat_completion_with_history(model_id: str, messages: list) -> str | None
+      Chat with message history
+      Messages format: [{"role": "user|assistant", "content": str}]
+      Returns model response or None
+
+    - check_free_models() -> dict
+      Verifies status of free models
+      Returns: {model_id: {'status': 'OK'|'FAIL', 'response': str}}
+
+RATE LIMITER
+============
+
+class RateLimiter()
+    Implements exponential backoff retry logic
+
+    Attributes:
+    - max_retries: int (default: 5)
+    - base_delay: float (default: 1.0)
+    - max_delay: float (default: 60.0)
+    - jitter: float (default: 0.2)
+    - rate_limit_window: int (default: 60)
+
+    Methods:
+    - execute_with_retry(func, endpoint, max_retries, args, kwargs) -> Any
+      Executes function with automatic retry on 429 errors
+      Returns function result or raises exception
+
+    - _is_rate_limited(endpoint: str) -> bool
+      Checks if endpoint is currently rate limited
+
+    - _get_delay(attempt: int) -> float
+      Calculates delay for retry attempt
+
+MODEL FALLBACK MANAGER
+======================
+
+class ModelFallbackManager(api_checker)
+    Manages automatic fallback between models
+
+    Attributes:
+    - fallback_models: list[str]
+    - blacklist: dict (model_id -> cooldown_until)
+    - fallback_history: dict
+    - max_retries: int (default: 3)
+    - cooldown_seconds: int (default: 30)
+
+    Methods:
+    - chat_with_fallback(primary_model, messages, config) -> str | None
+      Tries primary model, falls back to alternatives on failure
+      Returns response or None
+
+    - _add_to_blacklist(model_id: str, seconds: int = 30) -> None
+      Blacklists model for specified duration
+
+    - _record_failure(model_id: str, error: str) -> None
+      Records failure in fallback_history
+
+    - _record_success(model_id: str) -> None
+      Removes model from blacklist
+
+    - get_status() -> dict
+      Returns current fallback status
+
+CONFIGURATION MANAGER
+=====================
+
+class ModelConfigManager(config_dir: str = "configs")
+    Manages profiles and configurations
+
+    Methods:
+    - load_default_config() -> dict
+      Returns default configuration structure
+
+    - create_profile(name: str, model_id: str, config: dict) -> bool
+      Creates new profile, saves to YAML
+      Returns success status
+
+    - load_profile(name: str) -> dict | None
+      Loads profile configuration
+      Returns config dict or None if not found
+
+    - list_profiles() -> list[str]
+      Returns list of profile names
+
+    - delete_profile(name: str) -> bool
+      Deletes profile
+      Returns success status
+
+    - save_system_prompt(prompt: str) -> bool
+      Saves custom system prompt
+      Returns success status
+
+    - get_system_prompt() -> str
+      Loads system prompt
+      Returns prompt text
+
+CHAT MANAGER
+============
+
+class ChatManager(fallback_manager, stream_handler)
+    Manages chat sessions
+
+    Methods:
+    - create_streaming_session(model_id, profile, config) -> str
+      Creates new session
+      Returns session_id
+
+    - add_message(session_id: str, role: str, content: str) -> None
+      Adds message to session
+
+    - get_session(session_id: str) -> ChatSession | None
+      Retrieves session
+      Returns ChatSession or None
+
+    - list_sessions() -> list[dict]
+      Returns all sessions with metadata
+
+    - clear_session(session_id: str) -> None
+      Clears session history
+
+    - export_session(session_id: str, format: str) -> str | None
+      Exports session in format: 'markdown', 'json', 'text'
+      Returns formatted content or None
+
+CHAT SESSION
+============
+
+class ChatSession(model_id: str, profile: str, config: dict)
+    Represents single chat session
+
+    Attributes:
+    - model_id: str
+    - profile: str
+    - config: dict
+    - messages: list[dict]
+    - created_at: str (ISO format)
+    - updated_at: str (ISO format)
+    - total_tokens: int
+    - message_count: int
+
+    Methods:
+    - add_message(role: str, content: str) -> None
+      Adds message to session
+
+    - get_messages() -> list[dict]
+      Returns all messages
+
+    - get_last_message() -> dict | None
+      Returns last message or None
+
+    - clear() -> None
+      Clears all messages
+
+    - chat_with_fallback(model_id, messages, config) -> str | None
+      Sends message with fallback
+
+STREAMING CHAT SESSION
+======================
+
+class StreamingChatSession(model_id: str, api_checker)
+    Handles streaming responses
+
+    Methods:
+    - send_message(content: str, streaming: bool = False) -> str
+      Sends message and returns response
+      If streaming=True, streams token by token
+
+    - add_message(role: str, content: str) -> None
+      Adds message to history
+
+    - clear() -> None
+      Clears message history
+
+    - toggle_streaming() -> None
+      Toggles streaming on/off
+
+CODE HIGHLIGHTER
+================
+
+class CodeHighlighter()
+    Syntax highlighting for code blocks
+
+    Supported Languages:
+    - Python (.py)
+    - JavaScript (.js, .ts)
+    - JSON (.json)
+    - Bash (.sh, .bash)
+    - C/C++ (.c, .cpp, .cc)
+    - Java (.java)
+    - Go (.go)
+    - Rust (.rs)
+
+    Methods:
+    - highlight(text: str) -> str
+      Highlights code blocks in text
+      Returns highlighted text with ANSI colors
+
+PROMPT TEMPLATES
+================
+
+class PromptTemplates(templates_dir: str = "configs/prompts")
+    Manages prompt templates
+
+    Predefined Templates:
+    - code_review: Review code suggestions
+    - explain: Explain code functionality
+    - refactor: Refactor for performance
+    - security: Security analysis
+    - debug: Find and fix bugs
+    - document: Generate documentation
+    - test: Create unit tests
+
+    Methods:
+    - list_templates() -> list[dict]
+      Returns available templates
+
+    - render_template(name: str, **kwargs) -> str | None
+      Renders template with variables
+      Example: render_template('code_review', code='...')
+
+    - create_template(name, description, template) -> bool
+      Creates custom template
+
+    - delete_template(name: str) -> bool
+      Deletes custom template
+
+TOKEN COUNTER
+=============
+
+class TokenCounter()
+    Estimates token usage
+
+    Methods:
+    - count(text: str) -> int
+      Counts tokens in text (approximation)
+
+    - count_messages(messages: list) -> int
+      Counts tokens in message list
+
+    - estimate_cost(input_tokens: int, output_tokens: int, model: str) -> dict
+      Estimates cost
+      Returns: {
+          'input_cost': float,
+          'output_cost': float,
+          'total_cost': float
+      }
+
+RESPONSE CACHE
+==============
+
+class ResponseCache(cache_file: str)
+    LRU response caching
+
+    Methods:
+    - set(model_id: str, messages: list, response: str) -> None
+      Caches response
+
+    - get(model_id: str, messages: list) -> str | None
+      Retrieves cached response or None
+
+    - clear() -> None
+      Clears all cache
+
+    - toggle(enabled: bool) -> None
+      Enables/disables caching
+
+COMMON PATTERNS
+===============
+
+Pattern 1: Simple Chat
+    from core.openrouter_checker import ApiKeyChecker
+    
+    checker = ApiKeyChecker(api_key)
+    response = checker.chat_completion(model_id, "Your prompt")
+
+Pattern 2: Chat with History
+    messages = [
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Hi!"},
+        {"role": "user", "content": "How are you?"}
+    ]
+    response = checker.chat_completion_with_history(model_id, messages)
+
+Pattern 3: Using Fallback
+    from core.model_fallback import ModelFallbackManager
+    
+    fallback = ModelFallbackManager(checker)
+    response = fallback.chat_with_fallback(primary_model, messages, config)
+
+Pattern 4: Profile Configuration
+    from core.setting_models.model_config import ModelConfigManager
+    
+    manager = ModelConfigManager()
+    config = manager.load_profile("my_profile")
+    checker.chat_with_config(model_id, prompt, config)
+
+ERROR HANDLING
+==============
+
+Standard Exception Types:
+    ValueError: Invalid input (missing API key, bad model_id)
+    ConnectionError: Network issues
+    TimeoutError: Request timeout (30 second default)
+    KeyError: Missing configuration field
+    FileNotFoundError: Missing registry or config file
+    JSONDecodeError: Invalid JSON response
+
+Retry Behavior:
+    429 (Rate Limited): Automatic retry with exponential backoff
+    500+ (Server Error): Automatic retry
+    Other errors: Propagated immediately
+
+HTTP Status Codes:
+    200: Success
+    401: Unauthorized (invalid API key)
+    429: Rate limit exceeded
+    500: Server error
+    502: Bad gateway
+    503: Service unavailable
