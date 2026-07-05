@@ -8,19 +8,20 @@ import time
 
 # Path for import
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "core"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "core", "setting_models"))
 try:
-    from core.openrouter_checker import ApiKeyChecker, API_KEY
-    from core.openrouter_checker import ApiKeyChecker
-    from ai.core.setting_models import ModelConfigManager
+    from openrouter_checker import ApiKeyChecker, API_KEY
+    from model_config import ModelConfigManager
+    from model_fallback import ModelFallbackManager
+    from rate_limiter import RateLimiter, ModelRateLimiter
+    from stream_handler import StreamHandler, StreamingChatSession
     from chat_handler import ChatManager, ChatSession
+    from model_pinger import ModelPinger
+    from utils import CodeHighlighter, PromptTemplates, TokenCounter, ResponseCache
 except ImportError as e:
     print(f"Import error: {e}")
-    print(
-        "Ensure that the file core/openrouter_checker.py exists and contains the ApiKeyChecker class."
-    )
+    print("Ensure that all required files exist in core/ and core/setting_models/")
     sys.exit(1)
-
-
 # conf colors
 class Colors:
     GREEN = "\033[92m"
