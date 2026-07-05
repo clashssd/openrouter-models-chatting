@@ -159,11 +159,11 @@ class ChatManager:
     def __init__(self, sessions_dir: str = "chat_sessions", fallback_manager_param=None, stream_handler_param=None):
     # allow passing fallback_manager and stream_handler from callers (e.g. main.py)
     # and update module-level globals for backward compatibility with existing code
-    global fallback_manager, stream_handler
-    if fallback_manager_param is not None:
-        fallback_manager = fallback_manager_param
-    if stream_handler_param is not None:
-        stream_handler = stream_handler_param
+        global fallback_manager, stream_handler
+        if fallback_manager_param is not None:
+            fallback_manager = fallback_manager_param
+        if stream_handler_param is not None:
+            stream_handler = stream_handler_param
 
     self.sessions_dir = Path(sessions_dir)
     self.sessions_dir.mkdir(parents=True, exist_ok=True)
