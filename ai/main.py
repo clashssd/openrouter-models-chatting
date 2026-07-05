@@ -293,7 +293,8 @@ def cmd_chat(checker: ApiKeyChecker, model_id: str, profile: str = None) -> int:
             print_info(f"Using profile: {profile}")
     # Create chat manager with stream handler
     chat_manager = ChatManager(
-        fallback_manager=checker.fallback_manager, stream_handler=checker.stream_handler
+            fallback_manager_param=checker.fallback_manager, 
+            stream_handler_param=checker.stream_handler
     )
     # Create streaming session
     session_id = chat_manager.create_streaming_session(model_id, profile, config)
