@@ -9,7 +9,8 @@ import time
 # Path for import
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "core"))
 try:
-    from openrouter_checker import ApiKeyChecker, API_KEY
+    from core.openrouter_checker import ApiKeyChecker, API_KEY
+    from core.openrouter_checker import ApiKeyChecker
     from ai.core.setting_models import ModelConfigManager
     from chat_handler import ChatManager, ChatSession
 except ImportError as e:
