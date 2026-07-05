@@ -8,6 +8,7 @@ from pathlib import Path
 import logging
 from utils import CodeHighlighter, TokenCounter
 from stream_handler import StreamHandler, StreamingChatSession
+
 # base logger
 logger = logging.getLogger("my_app")
 
