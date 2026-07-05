@@ -555,6 +555,128 @@ def cmd_clear_cache() -> int:
     cache.clear()
     print_success("Cache cleared")
     return 0
+def cmd_check(checker: ApiKeyChecker, max_workers: int = 5) -> int:
+    """Check all free models"""
+    print_header("Checking models", Colors.PURPLE)
+    print_info(f"Using {max_workers} parallel workers")
+    
+    results = checker.check_free_models(max_workers=max_workers)
+    
+    if results:
+        print_table(results)
+        checker.save_results(results)
+        checker.save_working_models(results)
+        checker.update_registry_status(results)
+        print_success(f"Checked {len(results)} models")
+    else:
+        print_error("No models checked")
+        return 1
+    
+    return 0
+
+
+def cmd_list() -> int:
+    """Show working models from cache"""
+    print_header("Working models from cache", Colors.BLUE)
+    
+    import glob
+    files = glob.glob("working_models*.json")
+    
+    if not files:
+        print_warning("No working models cache found")
+        print_info("Run: python main.py --check")
+        return 0
+    
+    latest = max(files, key=os.path.getmtime)
+    
+    try:
+        with open(latest, 'r') as f:
+            data = json.load(f)
+        
+        print_info(f"File: {latest}")
+        
+        if not data:
+            print_warning("Cache is empty")
+            return 0
+        
+        print_header(f"Found {len(data)} working models", Colors.GREEN)
+        for i, (model_id, info) in enumerate(data.items(), 1):
+            print(f"  {i:2}. {Colors.CYAN}{model_id}{Colors.END}")
+            print(f"      📝 {info.get('name', 'N/A')}")
+            if info.get('response'):
+                print(f"      💬 {info['response'][:60]}...")
+            print()
+    
+    except Exception as e:
+        print_error(f"Error reading cache: {e}")
+        return 1
+    
+    return 0
+
+
+def cmd_test(checker: ApiKeyChecker, model_id: str) -> int:
+    """Test a specific model"""
+    print_header(f"Testing model: {model_id}", Colors.PURPLE)
+    print_info("Sending test request...")
+    
+    response = checker.chat_completion(model_id, "Hello! Write one word.")
+    
+    if response:
+        print_success("Model is working!")
+        print_key_value("Response", f"{Colors.CYAN}{response[:100]}{Colors.END}")
+        return 0
+    else:
+        print_error("Model did not respond or is unavailable")
+        return 1
+
+
+def cmd_api_key(checker: ApiKeyChecker) -> int:
+    """Show API key status"""
+    print_header("API Key Status", Colors.PURPLE)
+    
+    status = checker.get_key_status()
+    
+    if status is None:
+        print_error("Failed to get API key status")
+        return 1
+    
+    print_key_value("Label", status.get('label', 'N/A'))
+    print_key_value("Free Tier", "Yes" if status.get('is_free_tier') else "No")
+    print_key_value("Limit", str(status.get('limit', 'No limit')))
+    print_key_value("Usage", f"{status.get('usage', 0)} credits")
+    print_key_value("Rate Limit", f"{status.get('rate_limit', 'N/A')} req/sec")
+    
+    return 0
+
+
+def cmd_models(checker: ApiKeyChecker) -> int:
+    """Show all available models"""
+    print_header("Available models", Colors.BLUE)
+    
+    models = checker.get_all_models()
+    
+    if models is None:
+        print_error("Failed to get models")
+        return 1
+    
+    free = [m for m in models if m.get('id', '').endswith(':free')]
+    paid = [m for m in models if not m.get('id', '').endswith(':free')]
+    
+    print_key_value("Total models", str(len(models)))
+    print_key_value(" Free", str(len(free)), Colors.GREEN)
+    print_key_value("Paid", str(len(paid)), Colors.YELLOW)
+    
+    if free:
+        print_header("Free models (first 10)", Colors.GREEN)
+        for i, model in enumerate(free[:10], 1):
+            print(f"  {i:2}. {Colors.CYAN}{model.get('id')}{Colors.END}")
+            print(f"      {model.get('name', 'N/A')}")
+            print(f"       Context: {model.get('context_length', 'N/A')} tokens")
+            print()
+        if len(free) > 10:
+            print_info(f"... and {len(free) - 10} more models")
+    
+    return 0
 
 
 # Main functions
